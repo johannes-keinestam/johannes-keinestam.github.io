@@ -1,0 +1,66 @@
+.container {
+  width: 710px;
+}
+
+body {
+  background: #a0cece;
+}
+
+header {
+  padding-top: 20px;
+}
+
+div.box {
+  width: 400px;
+  padding: 50px;
+  background-color: #fcffff;
+  margin: 30px auto 30px auto;
+  border-radius: 25px;
+  -moz-border-radius: 25px;
+  text-align: center;
+  font-family: 'Noto Serif', serif;
+}
+
+#profile-photo {
+  margin-top: 20px;
+}
+
+div#profile-info {
+  font-size: 80%;
+}
+
+section {
+  margin-top: 1em;
+  font-size: 120%;
+  padding: 20px;
+  background: #ffffff;
+}
+
+section h1 {
+  font-size: 250%;
+  font-smooth: always;
+}
+
+#contact-urls {
+  margin-top: 15px;
+  margin-bottom: 15px;
+}
+
+#contact-urls a {
+  display: block;
+  color: #0099cc;
+  text-decoration: none;
+}
+
+#contact-urls a:hover {
+  color: #409a91;
+  font-weight: bold;
+}
+
+#contact-urls a:visited {
+  color: #0099cc;
+}
+
+#resume-url {
+  margin-top: 20px;
+}
