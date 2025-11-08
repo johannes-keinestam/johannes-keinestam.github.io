@@ -177,8 +177,16 @@ function renderBrands() {
         <button class="plus">+</button>
       </div>
     `;
-    div.querySelector('.minus').onclick = () => { if(counts[b]>0) counts[b]--; renderBrands(); };
-    div.querySelector('.plus').onclick = () => { counts[b] = (counts[b]||0)+1; renderBrands(); };
+    div.querySelector('.minus').onclick = () => {
+        if (counts[b] > 0) counts[b]--;
+        if (navigator.vibrate) navigator.vibrate(10);
+        renderBrands();
+    };
+    div.querySelector('.plus').onclick = () => {
+        counts[b] = (counts[b] || 0) + 1;
+        if (navigator.vibrate) navigator.vibrate(10);
+        renderBrands();
+    };
     listEl.appendChild(div);
   }
 }
