@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Car Brand Counter</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f5;
+    --fg: #000;
+    --card-bg: #fff;
+    --accent: #4e79a7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111;
+      --fg: #eee;
+      --card-bg: #222;
+    }
+  }
+  [data-theme="dark"] {
+    --bg: #111;
+    --fg: #eee;
+    --card-bg: #222;
+  }
+  [data-theme="light"] {
+    --bg: #f5f5f5;
+    --fg: #000;
+    --card-bg: #fff;
+  }
+  body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  header {
+    position: sticky; top: 0;
+    background: var(--card-bg);
+    padding: .5em;
+    box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    display: flex; flex-wrap: wrap; gap: .5em; align-items: center; justify-content: space-between;
+  }
+  h1 { margin: 0; font-size: 1.2em; }
+  button, select, input {
+    font-size: 1em;
+    padding: .4em .6em;
+    border-radius: .3em;
+    border: 1px solid #666;
+    background: var(--card-bg);
+    color: var(--fg);
+  }
+  #brand-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: .5em;
+    padding: .5em;
+  }
+  .brand {
+    background: var(--card-bg);
+    border-radius: .5em;
+    box-shadow: 0 1px 3px rgba(0,0,0,.1);
+    padding: .5em;
+    text-align: center;
+    display: flex; flex-direction: column; gap: .3em;
+  }
+  .brand-name { font-weight: bold; font-size: .9em; }
+  .controls { display: flex; justify-content: center; align-items: center; gap: .4em; }
+  .controls button {
+    width: 2em; height: 2em;
+    border-radius: 50%;
+    font-size: 1.2em;
+  }
+  #sessions {
+    padding: 1em;
+  }
+  .session {
+    background: var(--card-bg); margin-bottom: .5em; border-radius: .5em;
+    padding: .5em; box-shadow: 0 1px 3px rgba(0,0,0,.1);
+  }
+  canvas { width: 100%; max-width: 600px; height: 300px; display: block; margin: 1em auto; }
+  footer { padding: 1em; text-align: center; opacity: .7; }
+  #newBrandForm {
+    padding: 0.5em;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Car Counter</h1>
+  <div>
+    <label>Sort:
+      <select id="sortMode">
+        <option value="alpha">A–Ö</option>
+        <option value="count">By Count</option>
+      </select>
+    </label>
+    <button id="saveBtn">Save</button>
+    <button id="viewSessionsBtn">Sessions</button>
+    <button id="themeToggle">🌓</button>
+  </div>
+</header>
+
+<main id="brand-list"></main>
+
+<div id="newBrandForm">
+  <input type="text" id="newBrandInput" placeholder="Add new brand" />
+  <button id="addBrandBtn">Add</button>
+</div>
+
+<div id="sessions" style="display:none;">
+  <h2>Saved Sessions</h2>
+  <div id="sessionList"></div>
+  <canvas id="chartBar"></canvas>
+  <canvas id="chartPie"></canvas>
+  <div id="sessionText"></div>
+  <p><button id="backBtn">Back</button></p>
+</div>
+
+<footer>© Car Counter</footer>
+
+<script>
+const defaultBrands = [
+  "Volvo","Volkswagen","Toyota","BMW","Mercedes-Benz","Audi","Kia","Hyundai","Peugeot","Skoda",
+  "Renault","Mazda","Nissan","Ford","Tesla","Seat","Suzuki","Citroën","Opel","Fiat","Subaru",
+  "Mitsubishi","Honda","Jeep"
+];
+
+function loadBrands() {
+  const stored = JSON.parse(localStorage.getItem('brands')||'[]');
+  return Array.from(new Set([...defaultBrands, ...stored]));
+}
+
+let brands = loadBrands();
+let counts = Object.fromEntries(brands.map(b => [b, 0]));
+let sortMode = "alpha";
+
+const listEl = document.getElementById('brand-list');
+const sortEl = document.getElementById('sortMode');
+const saveBtn = document.getElementById('saveBtn');
+const viewSessionsBtn = document.getElementById('viewSessionsBtn');
+const sessionsEl = document.getElementById('sessions');
+const sessionListEl = document.getElementById('sessionList');
+const backBtn = document.getElementById('backBtn');
+const chartBar = document.getElementById('chartBar');
+const chartPie = document.getElementById('chartPie');
+const sessionText = document.getElementById('sessionText');
+const themeToggle = document.getElementById('themeToggle');
+const newBrandInput = document.getElementById('newBrandInput');
+const addBrandBtn = document.getElementById('addBrandBtn');
+
+let theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark':'light');
+document.body.dataset.theme = theme;
+
+themeToggle.onclick = () => {
+  theme = (theme==='light')?'dark':'light';
+  document.body.dataset.theme = theme;
+  localStorage.setItem('theme', theme);
+};
+
+function renderBrands() {
+  listEl.innerHTML = "";
+  let sorted = [...brands];
+  if (sortMode === "count") sorted.sort((a,b)=>counts[b]-counts[a] || a.localeCompare(b));
+  else sorted.sort((a,b)=>a.localeCompare(b));
+
+  for (const b of sorted) {
+    const div = document.createElement('div');
+    div.className = 'brand';
+    div.innerHTML = `
+      <div class="brand-name">${b}</div>
+      <div class="controls">
+        <button class="minus">–</button>
+        <span class="count">${counts[b] ?? 0}</span>
+        <button class="plus">+</button>
+      </div>
+    `;
+    div.querySelector('.minus').onclick = () => { if(counts[b]>0) counts[b]--; renderBrands(); };
+    div.querySelector('.plus').onclick = () => { counts[b] = (counts[b]||0)+1; renderBrands(); };
+    listEl.appendChild(div);
+  }
+}
+
+sortEl.onchange = e => { sortMode = e.target.value; renderBrands(); };
+
+saveBtn.onclick = () => {
+  const sessions = JSON.parse(localStorage.getItem('sessions')||"[]");
+  sessions.push({ date: new Date().toLocaleString(), counts });
+  localStorage.setItem('sessions', JSON.stringify(sessions));
+  alert('Session saved!');
+};
+
+viewSessionsBtn.onclick = showSessions;
+backBtn.onclick = () => { 
+  sessionsEl.style.display='none';
+  listEl.style.display='';
+  document.getElementById('newBrandForm').style.display='';
+};
+
+addBrandBtn.onclick = () => {
+  const name = newBrandInput.value.trim();
+  if (!name) return;
+  if (!brands.includes(name)) {
+    brands.push(name);
+    counts[name] = 0;
+    const added = JSON.parse(localStorage.getItem('brands')||'[]');
+    added.push(name);
+    localStorage.setItem('brands', JSON.stringify(added));
+    renderBrands();
+  }
+  newBrandInput.value="";
+};
+
+function showSessions(){
+  const sessions = JSON.parse(localStorage.getItem('sessions')||"[]");
+  listEl.style.display='none';
+  document.getElementById('newBrandForm').style.display='none';
+  sessionsEl.style.display='';
+  sessionListEl.innerHTML="";
+  sessionText.innerHTML="";
+  [chartBar, chartPie].forEach(c=>c.getContext('2d').clearRect(0,0,c.width,c.height));
+  sessions.forEach((s,i)=>{
+    const div=document.createElement('div');
+    div.className='session';
+    div.textContent = `${i+1}. ${s.date}`;
+    div.onclick = ()=>showCharts(s);
+    sessionListEl.appendChild(div);
+  });
+}
+
+function showCharts(session){
+  const ctxBar = chartBar.getContext('2d');
+  const ctxPie = chartPie.getContext('2d');
+  const entries = Object.entries(session.counts).filter(([_,v])=>v>0);
+  entries.sort((a,b)=>b[1]-a[1]);
+  const total = entries.reduce((a,[,v])=>a+v,0);
+  const max = Math.max(...entries.map(e=>e[1]),1);
+  const w = chartBar.width, h = chartBar.height;
+
+  // --- Bar chart ---
+  ctxBar.clearRect(0,0,w,h);
+  const barWidth = w/entries.length;
+  ctxBar.font="12px sans-serif";
+  ctxBar.textAlign="center";
+  entries.forEach(([brand,count],i)=>{
+    const barHeight = count/max * (h-40);
+    ctxBar.fillStyle="var(--accent)";
+    ctxBar.fillRect(i*barWidth+4, h-barHeight-20, barWidth-8, barHeight);
+    ctxBar.fillStyle="var(--fg)";
+    ctxBar.fillText(count, i*barWidth+barWidth/2, h-barHeight-25);
+    ctxBar.save();
+    ctxBar.translate(i*barWidth+barWidth/2, h-5);
+    ctxBar.rotate(-Math.PI/4);
+    ctxBar.fillText(brand, 0, 0);
+    ctxBar.restore();
+  });
+
+  // --- Pie chart ---
+  ctxPie.clearRect(0,0,chartPie.width,chartPie.height);
+  const cx = chartPie.width/2, cy = chartPie.height/2;
+  const radius = Math.min(cx,cy)-20;
+  let start = 0;
+  entries.forEach(([brand,count],i)=>{
+    const angle = (count/total)*2*Math.PI;
+    const hue = (i*45)%360;
+    ctxPie.beginPath();
+    ctxPie.moveTo(cx,cy);
+    ctxPie.fillStyle = `hsl(${hue},60%,55%)`;
+    ctxPie.arc(cx,cy,radius,start,start+angle);
+    ctxPie.fill();
+    const mid = start+angle/2;
+    const labelX = cx + Math.cos(mid)*radius*0.7;
+    const labelY = cy + Math.sin(mid)*radius*0.7;
+    ctxPie.fillStyle=theme==='dark'?'#fff':'#000';
+    ctxPie.textAlign="center";
+    ctxPie.font="12px sans-serif";
+    ctxPie.fillText(((count/total)*100).toFixed(1)+"%", labelX, labelY);
+    start += angle;
+  });
+
+  // --- Text summary ---
+  const html = entries.map(([b,c])=>`${b}: ${c} (${(c/total*100).toFixed(1)}%)`).join("<br>");
+  sessionText.innerHTML = `<h3>${session.date}</h3>${html}`;
+}
+
+renderBrands();
+</script>
+</body>
+</html>
